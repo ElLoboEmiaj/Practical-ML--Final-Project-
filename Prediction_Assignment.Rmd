@@ -1,0 +1,107 @@
+---
+title: "Final Project - How good is your exercise"
+author: "Jaime Rojas"
+date: "July 6, 2017"
+output:
+  html_document:
+    keep_md: yes
+---
+
+```{r Packages, include=FALSE}
+library(caret)
+library(randomForest)
+
+```
+
+#Executive Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. The goal of this work it to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants in order to predict how well they do their activities. This is represented by the variable "class" in training set. Further information about the original work can be found on this website http://groupware.les.inf.puc-rio.br/har.
+
+# 1.Loading and Cleaning Data
+```{r Loading, echo=TRUE}
+set.seed(666)
+
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+TRAINDATA <- read.csv(url(trainUrl), na.strings=c("NA","","#DIV/0!"))
+TESTDATA <- read.csv(url(testUrl), na.strings=c("NA","","#DIV/0!"))
+
+dim(TRAINDATA)
+
+```
+
+From Appendix 1, we can see there are so many variables with lots of NA's. Additionally, we have some variables that are not Predictors. And we should care about variables which have no impact in the variance.
+```{r cleaning, echo=TRUE}
+
+#First of all, we take out  zero variability columns
+nzv_col <- nearZeroVar(TRAINDATA)
+training <- TRAINDATA[,-(nzv_col)]
+
+#then we take out variable with more than 10% NA's
+training <- training [,colSums(is.na(training))<nrow(training)*0.1]
+
+#and we take out the first seven variable which are not predictors
+training <- training[,-(1:7)]
+
+#finally we apply same procedure to TESTDATA, and we call our new testing data set as "testing"
+
+testing<-TESTDATA[,intersect(names(training),names(TESTDATA))]
+
+dim(training)
+```
+
+So we got a training data set with 52 variables instead of 160.
+Now we split our training data into 2 in order to search the best model. the 60% will be form mytrain and the 40% for mytest.
+```{r part,echo=TRUE}
+inTrain <- createDataPartition(y=training$classe, p=0.6, list=FALSE)
+mytrain <- training[inTrain, ]; mytest <- training[-inTrain, ]
+dim(mytrain); dim(mytest)
+
+```
+
+#2. Searching for a Model 
+
+We have still many variables, so many of them well be probably weak predictors. Because of this, our first attempt will be trying to build a prediction model with "Random Forest".
+
+## Random Forest
+We will run a Random Forest algorithm with 5 "Fold Cross Validation"
+```{r RF,echo=TRUE}
+
+set.seed(1234)
+RF_model <- train(classe~., data = mytrain, method = "rf", trControl=trainControl(method="cv",number=5))
+save(RF_model,file="RF_model.Rda")
+predT1<-predict(RF_model, mytest[,-52])
+
+
+confusionMatrix(predT1, mytest$classe)
+```
+
+So the accuracy of our model is 99.2%, which is very good. 
+
+
+#3.Running our Model
+
+Now we make the prediction on our testing data set.
+
+```{r Pred, echo=TRUE}
+
+PRED<-predict(RF_model, testing)
+PRED
+
+```
+
+#ANNEX
+## 1. Summary TRAINDATA
+
+```{r sumTRAIN, echo=TRUE}
+
+str(TRAINDATA)
+
+```
+
+
+
+
+
+
+
